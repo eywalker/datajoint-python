@@ -2,7 +2,7 @@
 Collection of test cases to test connection module.
 """
 
-from nose.tools import assert_true, assert_raises, assert_equal, raises
+from nose.tools import assert_true, assert_false, assert_raises, assert_equal, raises
 import datajoint as dj
 import numpy as np
 from datajoint import DataJointError
@@ -102,3 +102,14 @@ class TestTransactions:
                      "Length is not 1. Expected because rollback should have happened.")
         assert_equal(len(self.relation & 'subject_id = 2'), 0,
                      "Length is not 0. Expected because rollback should have happened.")
+
+    def test_broken_connection(self):
+        """Tests handling of broken connection encountered during a transaction"""
+        self.conn.start_transaction()
+        self.conn.cancel_transaction()
+        #self.conn.close()
+        self.conn.connect()
+        #self.conn.close() # manually close the connection
+        #assert_raises(DataJointError, self.relation.fetch)
+        #assert_false(self.conn._in_transaction)
+        #self.conn.connect()

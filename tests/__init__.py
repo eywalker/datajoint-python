@@ -35,6 +35,11 @@ def setup_package():
     """
     dj.config['safemode'] = False
 
+def kill_all(conn):
+    query = 'SELECT * FROM information_schema.processlist WHERE id <> CONNECTION_ID()'
+    for process in conn.query(query, as_dict=True).fetchall():
+        pid = process['ID']
+        conn.query('kill %d' % pid)
 
 def teardown_package():
     """
@@ -43,7 +48,8 @@ def teardown_package():
     To deal with possible foreign key constraints, it will unset
     and then later reset FOREIGN_KEY_CHECKS flag
     """
-    conn = dj.conn(**CONN_INFO)
+    conn = dj.conn(reset=True, **CONN_INFO)
+    #kill_all(conn)
     conn.query('SET FOREIGN_KEY_CHECKS=0')
     cur = conn.query('SHOW DATABASES LIKE "{}\_%%"'.format(PREFIX))
     for db in cur.fetchall():

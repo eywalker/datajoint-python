@@ -8,6 +8,9 @@ services:
       - DJ_HOST=db
       - DJ_USER=root
       - DJ_PASS=simple
+      - DJ_TEST_HOST=db
+      - DJ_TEST_USER=root
+      - DJ_TEST_PASSWORD=simple
     volumes:
       - .:/src
     links:

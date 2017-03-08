@@ -66,6 +66,7 @@ class Connection:
         self.conn_info = dict(host=host, port=port, user=user, passwd=password)
         self.init_fun = init_fun
         print("Connecting {user}@{host}:{port}".format(**self.conn_info))
+        self._in_transaction = False
         self._conn = None
         self.connect()
         if self.is_connected:
@@ -73,7 +74,7 @@ class Connection:
         else:
             raise DataJointError('Connection failed.')
         self._conn.autocommit(True)
-        self._in_transaction = False
+
         self.jobs = JobManager(self)
         self.schemas = dict()
         self.dependencies = Dependencies(self)
@@ -92,6 +93,14 @@ class Connection:
         """
         self._conn = client.connect(init_command=self.init_fun, **self.conn_info)
 
+    def close(self):
+        """
+        Closes the connection to the database server, releasing any associated resource.
+        """
+        if self.in_transaction:
+            self.cancel_transaction()
+        self._conn.close()
+
     def register(self, schema):
         self.schemas[schema.database] = schema
 
@@ -100,7 +109,12 @@ class Connection:
         """
         Returns true if the object is connected to the database server.
         """
-        return self._conn.ping()
+        try:
+            self._conn.ping(reconnect=False)
+            return True
+        except:
+            return False
+
 
     def query(self, query, args=(), as_dict=False):
         """
@@ -119,7 +133,7 @@ class Connection:
             logger.debug("Executing SQL:" + query[0:300])
             cur.execute(query, args)
         except err.OperationalError as e:
-            if 'MySQL server has gone away' in str(e) and config['database.reconnect']:
+            if 'MySQL server has gone away' in str(e) and config['database.reconnect'] and not self._in_transaction:
                 warnings.warn('''Mysql server has gone away.
                     Reconnected to the server. Data from transactions might be lost and referential constraints may
                     be violated. You can switch off this behavior by setting the 'database.reconnect' to False.
@@ -153,7 +167,7 @@ class Connection:
         :raise DataJointError: if there is an ongoing transaction.
         """
         if self.in_transaction:
-            raise DataJointError("Nested connections are not supported.")
+            raise DataJointError("Nested transactions are not supported.")
         self.query('START TRANSACTION WITH CONSISTENT SNAPSHOT')
         self._in_transaction = True
         logger.info("Transaction started")
@@ -163,7 +177,12 @@ class Connection:
         Cancels the current transaction and rolls back all changes made during the transaction.
 
         """
-        self.query('ROLLBACK')
+        # attempt a rollback call
+        try:
+            self.query('ROLLBACK')
+        except err.OperationalError:
+            # if connection is lost, transaction is cancelled anyway
+            pass
         self._in_transaction = False
         logger.info("Transaction cancelled. Rolling back ...")
 

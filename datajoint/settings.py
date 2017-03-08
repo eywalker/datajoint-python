@@ -41,7 +41,7 @@ default = OrderedDict({
     'database.user': None,
     'database.port': 3306,
     'connection.init_function': None,
-    'database.reconnect': False,
+    'database.reconnect': True,
     'loglevel': 'INFO',
     'safemode': True,
     'display.limit': 7,
